@@ -1,6 +1,6 @@
 {
-  "name": "inews",
-  "version": "1.3.3",
+  "name": "@tv2media/inews",
+  "version": "1.3.4",
   "description": "Connects to an Avid iNews server over FTP",
   "license": "MIT",
   "author": {
@@ -9,9 +9,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://bitbucket.org/cnndatastore/node-inews.git"
+    "url": "https://github.com/tv2/node-inews.git"
   },
   "main": "inewsFtp.js",
+  "files": [
+    "*.js"
+  ],
   "scripts": {
     "test": "jest"
   },
