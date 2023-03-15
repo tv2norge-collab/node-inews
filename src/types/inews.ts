@@ -35,6 +35,7 @@ export enum INewsFieldName {
 	BackTime = 'backTime',
 	Layout = 'layout',
 	RunsTime = 'runsTime',
+	VideoId = 'videoId',
 }
 
 /**

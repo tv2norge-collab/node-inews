@@ -27,6 +27,7 @@ export default (nsml: string, callback: NodeCallback<INewsStory>): void => {
 				pageNumber: { value: undefined },
 				layout: { value: undefined },
 				runsTime: { value: undefined },
+				videoId: { value: undefined },
 			},
 			meta: {},
 			cues: [],
