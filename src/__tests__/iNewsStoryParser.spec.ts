@@ -1,7 +1,6 @@
-const parseNsml = require('../inewsStoryParser');
+import parseNsml from '../inewsStoryParser'
 
 describe('inewsStoryParser', () => {
-
 	it('parses multi-line anchored element (ae)', () => {
 		const nsml = `<nsml version="-//AVID//DTD NSML 1.0//EN">
 		<story>
@@ -16,20 +15,21 @@ describe('inewsStoryParser', () => {
 		</ae>
 		</aeset>
 		</story>
-		`;
-		let error;
-		let output;
+		`
+		let error
+		let output
 
-		parseNsml(nsml, (err, out) => { error = err; output = out });
+		parseNsml(nsml, (err, out) => {
+			error = err
+			output = out
+		})
 
-		expect(error).toBeFalsy();
+		expect(error).toBeFalsy()
 		expect(output).toEqual({
 			fields: {},
 			meta: {},
-			cues: [
-				['#kg bund TEST', 'test', ';0.02'],
-			]
-		});
+			cues: [['#kg bund TEST', 'test', ';0.02']],
+		})
 	})
 	it('omits empty paragraphs (ap) in a multi-line anchored element', () => {
 		const nsml = `<nsml version="-//AVID//DTD NSML 1.0//EN">
@@ -46,20 +46,21 @@ describe('inewsStoryParser', () => {
 		</ae>
 		</aeset>
 		</story>
-		`;
-		let error;
-		let output;
+		`
+		let error
+		let output
 
-		parseNsml(nsml, (err, out) => { error = err; output = out });
+		parseNsml(nsml, (err, out) => {
+			error = err
+			output = out
+		})
 
-		expect(error).toBeFalsy();
+		expect(error).toBeFalsy()
 		expect(output).toEqual({
 			fields: {},
 			meta: {},
-			cues: [
-				['#kg bund TEST', 'test', ';0.02'],
-			]
-		});
+			cues: [['#kg bund TEST', 'test', ';0.02']],
+		})
 	})
 	it('omits empty paragraphs (ap) in a multi-line anchored element with machine control (mc)', () => {
 		const nsml = `<nsml version="-//AVID//DTD NSML 1.0//EN">
@@ -78,20 +79,21 @@ describe('inewsStoryParser', () => {
 		</ae>
 		</aeset>
 		</story>
-		`;
-		let error;
-		let output;
+		`
+		let error
+		let output
 
-		parseNsml(nsml, (err, out) => { error = err; output = out });
+		parseNsml(nsml, (err, out) => {
+			error = err
+			output = out
+		})
 
-		expect(error).toBeFalsy();
+		expect(error).toBeFalsy()
 		expect(output).toEqual({
 			fields: {},
 			meta: {},
-			cues: [
-				['#kg bund TEST', 'test', ';0.02'],
-			]
-		});
+			cues: [['#kg bund TEST', 'test', ';0.02']],
+		})
 	})
 	it('maintains order (inserts empty cues in place of elements containing only an empty paragraph)', () => {
 		const nsml = `<nsml version="-//AVID//DTD NSML 1.0//EN">
@@ -134,24 +136,20 @@ describe('inewsStoryParser', () => {
 		</ae>
 		</aeset>
 		</story>
-		`;
-		let error;
-		let output;
+		`
+		let error
+		let output
 
-		parseNsml(nsml, (err, out) => { error = err; output = out });
+		parseNsml(nsml, (err, out) => {
+			error = err
+			output = out
+		})
 
-		expect(error).toBeFalsy();
+		expect(error).toBeFalsy()
 		expect(output).toEqual({
 			fields: {},
 			meta: {},
-			cues: [
-				[],
-				[],
-				[],
-				['#kg bund TEST', 'test', ';0.02'],
-				[],
-				['#kg bund TEST2', 'test2', ';0.11']
-			]
-		});
+			cues: [[], [], [], ['#kg bund TEST', 'test', ';0.02'], [], ['#kg bund TEST2', 'test2', ';0.11']],
+		})
 	})
-});
+})
