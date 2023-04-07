@@ -18,13 +18,13 @@ export type INewsClientConfig = {
 export type INewsFTPFile = {
 	file: string
 	modified?: Date
-	flags?: { floated?: boolean }
 } & (
 	| {
 			filetype: 'file'
 			identifier: string
 			locator: string
 			storyName: string
+			flags?: { floated?: boolean }
 	  }
 	| {
 			filetype: 'queue'
@@ -317,7 +317,9 @@ export class INewsClient extends EventEmitter {
 			const fileDate = this._dateFromListItem(listItem)
 			if (typeof fileDate !== 'undefined') file['modified'] = fileDate
 
-			file['flags'] = this._flagsFromListItem(listItem)
+			if (file['filetype'] === 'file') {
+				file['flags'] = this._flagsFromListItem(listItem)
+			}
 
 			return file as INewsFTPFile
 		} else return undefined
