@@ -136,9 +136,7 @@ function parseNsmlNode(node: htmlparser.Node, story: Partial<INewsStory>) {
 					const key = node.attribs['id']
 					const val = node.children[0]['data']
 					const uec = Boolean(node.attribs['uec'])
-					const urgency = (
-						'urgency' in node.attribs ? parseInt(node.attribs['urgency'], 10) : undefined
-					) as INewsFieldAttributes['urgency']
+					const urgency = sanitizeUrgency(node.attribs['urgency'])
 					const aready = node.attribs['aready']
 					// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 					story.fields![camelcase(key) as INewsFieldName] = {
@@ -159,4 +157,16 @@ function parseNsmlNode(node: htmlparser.Node, story: Partial<INewsStory>) {
 				break
 		}
 	}
+}
+
+function sanitizeUrgency(unsanitizedUrgency: string | undefined): INewsFieldAttributes['urgency'] {
+	if (unsanitizedUrgency === undefined) {
+		return
+	}
+	const urgency = parseInt(unsanitizedUrgency, 10)
+	return isValidUrgency(urgency) ? urgency : undefined
+}
+
+function isValidUrgency(urgency: number): urgency is NonNullable<INewsFieldAttributes['urgency']> {
+	return urgency >= 1 && urgency <= 3
 }
