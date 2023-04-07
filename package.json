@@ -41,7 +41,6 @@
 		"camelcase": "^6.0.0",
 		"ftp": "0.3.x",
 		"htmlparser": "^1.7.7",
-		"jobs-queue": "^0.0.3",
 		"unescape": "^1.0.1"
 	},
 	"devDependencies": {

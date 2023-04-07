@@ -1,6 +1,5 @@
 import EventEmitter = require('events')
 import FtpClient = require('ftp')
-import JobsQueue = require('jobs-queue')
 import parseNsml from './inewsStoryParser'
 import { INewsStory, Status } from './types/inews'
 
@@ -40,7 +39,6 @@ export class INewsClient extends EventEmitter {
 		((event: 'close', listener: (hadErr?: boolean) => void) => this) &
 		((event: 'end', listener: () => void) => this) &
 		((event: 'disconnected', listener: () => void) => this)
-	_queue = JobsQueue()
 
 	private config: INewsClientConfig
 	private _currentDir: null | string | undefined = null
@@ -241,10 +239,6 @@ export class INewsClient extends EventEmitter {
 	async storyNsml(directory: string, file: string): Promise<string> {
 		await this._cwd(directory)
 		return await this._get(file)
-	}
-
-	queueLength(): number {
-		return this._queue.queued
 	}
 
 	private _setStatus(status: Status) {

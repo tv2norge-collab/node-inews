@@ -2689,11 +2689,6 @@ jest@^29.2.2:
     import-local "^3.0.2"
     jest-cli "^29.2.2"
 
-jobs-queue@^0.0.3:
-  version "0.0.3"
-  resolved "https://registry.yarnpkg.com/jobs-queue/-/jobs-queue-0.0.3.tgz#becfbf6c4006b98ba623163e03e9e007e7c01a1b"
-  integrity sha512-RaiMuwGukp+z3DZJJXUap1T+/FQkQa/nUWhwRpI62ZAMTJCiWXT5qfrB6rVzgm6ZNGeJNQLyG6deFubWI/qRpg==
-
 js-sdsl@^4.1.4:
   version "4.3.0"
   resolved "https://registry.yarnpkg.com/js-sdsl/-/js-sdsl-4.3.0.tgz#aeefe32a451f7af88425b11fdb5f58c90ae1d711"
