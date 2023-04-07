@@ -2,11 +2,7 @@ import EventEmitter = require('events')
 import FtpClient = require('ftp')
 import JobsQueue = require('jobs-queue')
 import parseNsml from './inewsStoryParser'
-import { NodeCallback } from './types/util'
 import { INewsStory, Status } from './types/inews'
-
-// HACK (alvancamp 2023/03/13): This was the only way I could figure out to make these types work.
-import { JobsQueue as HackJobsQueue } from './types/hack-jobs-queue'
 
 export type INewsClientConfig = {
 	hosts: string[]
@@ -36,12 +32,6 @@ export type INewsFTPFile = {
 	  }
 )
 
-type Operation<T> = (jobCompleteCallback: NodeCallback<T>) => void
-type ErrorCallback = (
-	error: NodeJS.ErrnoException,
-	operationContinue: (continueError?: NodeJS.ErrnoException | null | undefined) => void
-) => void
-
 export class INewsClient extends EventEmitter {
 	status: Status = 'disconnected'
 	on!: ((event: 'status', listener: (status: { name: string; host: string }) => void) => this) &
@@ -53,14 +43,15 @@ export class INewsClient extends EventEmitter {
 	_queue = JobsQueue()
 
 	private config: INewsClientConfig
-	private _lastDirectory: null | string | number = null
 	private _currentDir: null | string | undefined = null
 	// The @types package is missing the `connected` property, so we add it here
 	private _ftpConn: FtpClient & { connected: boolean } = new FtpClient() as any
 	private _currentHost: string | null = null
 	private _reconnectAttempts = 0
-	private _connectionInProgress = false
-	private _connectionCallbacks: Array<NodeCallback<FtpClient>> = []
+	/**
+	 * Will only be defined if a connection is in-progress.
+	 */
+	private _connectionPromise?: Promise<FtpClient>
 
 	constructor(config: Partial<INewsClientConfig>) {
 		super()
@@ -95,260 +86,161 @@ export class INewsClient extends EventEmitter {
 		})
 	}
 
-	connect(callback: NodeCallback<FtpClient>, forceDisconnect?: boolean): void {
-		let reconnectAttempts = 0
-
-		const attemptReconnect = () => {
-			if (forceDisconnect || reconnectAttempts > 0) {
-				this.disconnect(() => {
-					connect(connectResult)
-				})
-			} else connect(connectResult)
+	async connect(): Promise<FtpClient> {
+		// If there's a connection in-progress, return that promise.
+		if (this._connectionPromise) {
+			return this._connectionPromise
 		}
 
-		const connect = (connectResult: NodeCallback<FtpClient>) => {
-			let returned = false
-
-			const onReady = () => {
-				if (!returned) {
-					returned = true
-					this._currentDir = null
-					removeListeners()
-					connectResult(null, this._ftpConn)
-				}
-			}
-
-			const onError = (error: NodeJS.ErrnoException) => {
-				if (!returned) {
-					returned = true
-					removeListeners()
-					connectResult(error)
-				}
-			}
-
-			const onEnd = () => {
-				if (!returned) {
-					returned = true
-					removeListeners()
-					connectResult(null, this._ftpConn)
-				}
-			}
-
-			const removeListeners = () => {
-				this._ftpConn.removeListener('ready', onReady)
-				this._ftpConn.removeListener('error', onError)
-				this._ftpConn.removeListener('end', onEnd)
-			}
-
-			this._currentHost = this.config.hosts[this._reconnectAttempts++ % this.config.hosts.length] // cycle through servers
-
-			this._setStatus('connecting')
-
-			const ftpConnConfig = {
-				host: this._currentHost,
-				user: this.config.user,
-				password: this.config.password,
-			}
-
-			this._ftpConn.once('ready', onReady)
-			this._ftpConn.once('error', onError)
-			this._ftpConn.once('end', onEnd) // workaround in case error is not emitted on timeout
-			this._ftpConn.connect(ftpConnConfig)
+		// If we're already connected, return that connection.
+		if (this._ftpConn !== null && this._ftpConn.connected) {
+			return this._ftpConn
 		}
 
-		const callbackSafe: NodeCallback<FtpClient> = (error, response) => {
-			this._connectionInProgress = false
-			while (this._connectionCallbacks.length) {
-				const connectionCallback = this._connectionCallbacks.shift()
-				if (typeof connectionCallback == 'function') {
-					if (error) {
-						connectionCallback(error)
+		// Else, connect.
+		this._currentDir = null
+		this._connectionPromise = new Promise((resolve, reject) => {
+			let reconnectAttempts = 0
+
+			const attemptReconnect = async (): Promise<FtpClient> => {
+				let promise: Promise<FtpClient>
+
+				if (reconnectAttempts > 0) {
+					promise = this.disconnect().then(async () => {
+						return connect()
+					})
+				} else {
+					promise = connect()
+				}
+
+				reconnectAttempts++
+
+				try {
+					const ftpConn = await promise
+					return ftpConn
+				} catch (error) {
+					if (
+						typeof this.config.reconnectAttempts !== 'number' ||
+						this.config.reconnectAttempts < 0 ||
+						reconnectAttempts < this.config.reconnectAttempts
+					) {
+						if (typeof this.config.reconnectTimeout === 'number' && this.config.reconnectTimeout > 0) {
+							await sleep(this.config.reconnectTimeout)
+						}
+
+						return attemptReconnect()
 					} else {
-						// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-						connectionCallback(error, response!)
+						throw error
 					}
 				}
 			}
-		}
 
-		const connectResult: NodeCallback<FtpClient> = (error, ftpConn) => {
-			reconnectAttempts++
+			const connect = async (): Promise<FtpClient> => {
+				return new Promise((resolve, reject) => {
+					let returned = false
 
-			if (
-				error &&
-				(typeof this.config.reconnectAttempts !== 'number' ||
-					this.config.reconnectAttempts < 0 ||
-					reconnectAttempts < this.config.reconnectAttempts)
-			) {
-				if (typeof this.config.reconnectTimeout != 'number' || this.config.reconnectTimeout <= 0) attemptReconnect()
-				else setTimeout(attemptReconnect, this.config.reconnectTimeout)
-			} else {
-				if (error) {
-					callbackSafe(error)
-				} else {
-					// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-					callbackSafe(null, ftpConn!)
-				}
-			}
-		}
-
-		if (typeof callback === 'function') this._connectionCallbacks.push(callback)
-
-		forceDisconnect = typeof forceDisconnect === 'boolean' ? forceDisconnect : false
-
-		if (this._ftpConn !== null && this._ftpConn.connected && !forceDisconnect) {
-			callbackSafe(null, this._ftpConn)
-		} else if (!this._connectionInProgress) {
-			this._connectionInProgress = true
-			this._currentDir = null
-
-			attemptReconnect()
-		}
-	}
-
-	disconnect(callback: NodeCallback<boolean>): void {
-		if (this._ftpConn.connected) {
-			this.once('end', () => {
-				callbackSafe(null, true)
-			})
-			this._ftpConn.end()
-		} else callback(null, true)
-
-		const callbackSafe: NodeCallback<boolean> = (error, success) => {
-			if (typeof callback == 'function') {
-				if (error) {
-					callback(error)
-				} else {
-					callback(null, Boolean(success))
-				}
-			}
-		}
-	}
-
-	list(directory: string, callback: NodeCallback<INewsFTPFile[]>): HackJobsQueue['JobContoller'] {
-		const maxOperations = this._lastDirectory == directory ? this.config.maxOperations : 1
-		this._lastDirectory = directory
-
-		const callbackSafe: NodeCallback<INewsFTPFile[]> = (error, result) => {
-			if (typeof callback === 'function') {
-				if (error) {
-					callback(error)
-				} else {
-					// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-					callback(null, result!)
-				}
-			}
-		}
-
-		// Return job controller
-		return this._connectedEnqueue(
-			(jobComplete) => {
-				this.connect((error) => {
-					if (error) jobComplete(error, null)
-					else {
-						this._cwd(directory, (error) => {
-							if (error) jobComplete(error, null)
-							else {
-								this._ftpConn.list((error, list) => {
-									if (error) jobComplete(error, null)
-									else {
-										const files: INewsFTPFile[] = []
-										if (Array.isArray(list)) {
-											;(list as Array<FtpClient.ListingElement | string>).forEach((listItem) => {
-												// So apparently, if the ftp library can't parse a list item, it just bails out and returns a string.
-												// This is not reflected in the types.
-												if (typeof listItem !== 'string') {
-													throw new Error('FTP list item was not a string!')
-												}
-												const file = this._fileFromListItem(listItem)
-												if (typeof file !== 'undefined') files.push(file)
-											})
-										}
-										jobComplete(null, files)
-									}
-								})
-							}
-						})
+					const onReady = () => {
+						if (!returned) {
+							returned = true
+							this._currentDir = null
+							removeListeners()
+							resolve(this._ftpConn)
+						}
 					}
+
+					const onError = (error: NodeJS.ErrnoException) => {
+						if (!returned) {
+							returned = true
+							removeListeners()
+							reject(error)
+						}
+					}
+
+					const onEnd = () => {
+						if (!returned) {
+							returned = true
+							removeListeners()
+							resolve(this._ftpConn)
+						}
+					}
+
+					const removeListeners = () => {
+						this._ftpConn.removeListener('ready', onReady)
+						this._ftpConn.removeListener('error', onError)
+						this._ftpConn.removeListener('end', onEnd)
+					}
+
+					this._currentHost = this.config.hosts[this._reconnectAttempts++ % this.config.hosts.length] // cycle through servers
+
+					this._setStatus('connecting')
+
+					const ftpConnConfig = {
+						host: this._currentHost,
+						user: this.config.user,
+						password: this.config.password,
+					}
+
+					this._ftpConn.once('ready', onReady)
+					this._ftpConn.once('error', onError)
+					this._ftpConn.once('end', onEnd) // workaround in case error is not emitted on timeout
+					this._ftpConn.connect(ftpConnConfig)
 				})
-			},
-			{ maxSimultaneous: maxOperations },
-			callbackSafe
-		)
+			}
+
+			// Kick off the connection attempt.
+			attemptReconnect()
+				.then((ftpClient) => resolve(ftpClient))
+				.catch((error) => reject(error))
+		})
+
+		return this._connectionPromise
 	}
 
-	story(directory: string, file: string, callback: NodeCallback<INewsStory>): HackJobsQueue['JobContoller'] {
-		// Return job controller
-		return this.storyNsml(directory, file, (error, storyNsml) => {
-			if (error) {
-				callback(error)
-			} else {
-				// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-				parseNsml(storyNsml!, callback)
-			}
+	async disconnect(): Promise<boolean> {
+		return new Promise((resolve) => {
+			if (this._ftpConn.connected) {
+				this.once('end', () => {
+					resolve(true)
+				})
+				this._ftpConn.end()
+			} else resolve(true)
 		})
 	}
 
-	private _connectedEnqueue<T>(
-		operation: Operation<T>,
-		options: HackJobsQueue['Options'],
-		callback: NodeCallback<T>
-	): HackJobsQueue['JobContoller'] {
-		// Calculate max operations
+	async list(directory: string): Promise<INewsFTPFile[]> {
+		await this.connect()
+		await this._cwd(directory)
 
-		const jobController = this.enqueue<T>(
-			operation,
-			this.config.maxOperationAttempts,
-			this.config.timeout,
-			(_error, operationContinue) => {
-				// On failure
-				// If disconnected, wait for ready, then restart
-				operationContinue()
-			},
-			(error, result) => {
-				if (error) {
-					callback(error)
-				} else {
-					callback(null, result as any)
-				}
-			},
-			options
-		)
-
-		return jobController
-	}
-
-	storyNsml(directory: string, file: string, callback: NodeCallback<string>): HackJobsQueue['JobContoller'] {
-		const maxOperations = this._lastDirectory == directory ? this.config.maxOperations : 1
-		this._lastDirectory = directory
-
-		const callbackSafe: NodeCallback<string> = (error, result) => {
-			if (typeof callback === 'function') {
-				if (error) {
-					callback(error)
-				} else {
-					// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-					callback(null, result!)
-				}
-			}
-		}
-
-		// Return job controller
-		return this._connectedEnqueue(
-			(jobComplete) => {
-				this.connect((error) => {
-					if (error) jobComplete(error, null)
-					else {
-						this._cwd(directory, (error) => {
-							if (error) jobComplete(error, null)
-							else this._get(file, jobComplete)
+		return new Promise((resolve, reject) => {
+			this._ftpConn.list((error, list) => {
+				if (error) reject(error)
+				else {
+					const files: INewsFTPFile[] = []
+					if (Array.isArray(list)) {
+						;(list as Array<FtpClient.ListingElement | string>).forEach((listItem) => {
+							// So apparently, if the ftp library can't parse a list item, it just bails out and returns a string.
+							// This is not reflected in the types.
+							if (typeof listItem !== 'string') {
+								throw new Error('FTP list item was not a string!')
+							}
+							const file = this._fileFromListItem(listItem)
+							if (typeof file !== 'undefined') files.push(file)
 						})
 					}
-				})
-			},
-			{ maxSimultaneous: maxOperations },
-			callbackSafe
-		)
+					resolve(files)
+				}
+			})
+		})
+	}
+
+	async story(directory: string, file: string): Promise<INewsStory> {
+		const storyNsml = await this.storyNsml(directory, file)
+		return await parseNsml(storyNsml)
+	}
+
+	async storyNsml(directory: string, file: string): Promise<string> {
+		await this._cwd(directory)
+		return await this._get(file)
 	}
 
 	queueLength(): number {
@@ -362,41 +254,45 @@ export class INewsClient extends EventEmitter {
 		}
 	}
 
-	private _cwd(requestPath: string, cwdComplete: NodeCallback<string | undefined>) {
-		if (this._currentDir === requestPath)
-			// already in this directory
-			cwdComplete(null, requestPath)
-		else {
-			this._ftpConn.cwd(requestPath, (error, cwdPath) => {
-				if (error) {
-					cwdComplete(error)
-				} else {
-					this._currentDir = cwdPath
-					cwdComplete(error, cwdPath)
-				}
-			})
-		}
+	private async _cwd(requestPath: string): Promise<void> {
+		return new Promise((resolve, reject) => {
+			if (this._currentDir === requestPath)
+				// already in this directory
+				resolve()
+			else {
+				this._ftpConn.cwd(requestPath, (error, cwdPath) => {
+					if (error) {
+						reject(error)
+					} else {
+						this._currentDir = cwdPath
+						resolve()
+					}
+				})
+			}
+		})
 	}
 
-	private _get(file: string, getComplete: NodeCallback<string>): void {
-		this._ftpConn.get(file, (error, stream) => {
-			if (error) getComplete(error, null)
-			else if (stream) {
-				let storyXml = ''
+	private async _get(file: string): Promise<string> {
+		return new Promise((resolve, reject) => {
+			this._ftpConn.get(file, (error, stream) => {
+				if (error) reject(error)
+				else if (stream) {
+					let storyXml = ''
 
-				stream.setEncoding('utf8')
+					stream.setEncoding('utf8')
 
-				stream.on('error', () => {
-					console.log('STREAM-ERROR 2')
-				})
+					stream.on('error', () => {
+						console.log('STREAM-ERROR 2')
+					})
 
-				stream.on('data', (chunk) => {
-					storyXml += chunk
-				})
-				stream.once('close', () => {
-					getComplete(null, storyXml)
-				})
-			} else getComplete(new Error('no_stream'), null)
+					stream.on('data', (chunk) => {
+						storyXml += chunk
+					})
+					stream.once('close', () => {
+						resolve(storyXml)
+					})
+				} else reject(new Error('no_stream'))
+			})
 		})
 	}
 
@@ -511,125 +407,6 @@ export class INewsClient extends EventEmitter {
 		return Array.isArray(listItemParts) && listItemParts.length > 1 ? listItemParts[1] : ''
 	}
 
-	enqueue<T>(
-		operation: Operation<T>,
-		maxOperationAttempts: number,
-		operationTimeout: number,
-		errorCallback: ErrorCallback,
-		finalCallback?: NodeCallback<T>,
-		options?: HackJobsQueue['Options']
-	): HackJobsQueue['JobContoller'] {
-		let operationComplete = false
-
-		const jobOperation = (next: () => void) => {
-			this._attemptOperation(timedOperation, maxOperationAttempts, errorCallback, (error, result) => {
-				if (error) {
-					callbackSafe(error)
-				} else {
-					// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-					callbackSafe(null, result!)
-				}
-				next()
-			})
-		}
-
-		const timedOperation = (callback: NodeCallback<T>) => {
-			this._timedOperation<Operation<T>, T>(operation, operationTimeout, (error, result) => {
-				if (!operationComplete) {
-					// Only continue if not canceled
-					if (error) {
-						callback(error)
-					} else {
-						// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-						callback(null, result!)
-					}
-				}
-			})
-		}
-
-		const callbackSafe: NodeCallback<T> = (error, result) => {
-			if (!operationComplete) {
-				operationComplete = true
-				if (typeof finalCallback === 'function') {
-					if (error) {
-						finalCallback(error)
-					} else {
-						// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-						finalCallback(null, result!)
-					}
-				}
-			}
-		}
-
-		const jobController = this._queue.enqueue(jobOperation, options)
-
-		return {
-			cancel: () => {
-				operationComplete = true
-				jobController.cancel()
-			},
-			complete: () => {
-				operationComplete = true
-				jobController.complete()
-			},
-			restart: () => {
-				jobController.restart()
-			},
-		}
-	}
-
-	private _attemptOperation<T>(
-		operation: Operation<T>,
-		maxAttempts: number,
-		errorCallback: ErrorCallback,
-		finalCallback?: NodeCallback<T>
-	) {
-		let currentAttempt = 0
-
-		const attemptOperation = () => {
-			currentAttempt++
-			const operationAttempt = currentAttempt
-			operation((error, result) => {
-				if (error && (typeof maxAttempts !== 'number' || maxAttempts < 0 || currentAttempt < maxAttempts)) {
-					errorCallback(error, (continueError) => {
-						if (continueError) callbackSafe(operationAttempt, continueError, result)
-						else attemptOperation()
-					})
-				} else callbackSafe(operationAttempt, error, result)
-			})
-		}
-
-		const callbackSafe = (
-			operationAttempt: number,
-			error: NodeJS.ErrnoException | null | undefined,
-			result: T | null | undefined
-		) => {
-			if (operationAttempt === currentAttempt) {
-				if (typeof finalCallback === 'function') {
-					if (error) {
-						finalCallback(error)
-					} else {
-						// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-						finalCallback(null, result!)
-					}
-				}
-			}
-		}
-
-		attemptOperation()
-	}
-
-	private _timedOperation<T extends Operation<U>, U>(operation: T, timeout: number, callback: NodeCallback<U>) {
-		const operationTimeout = setTimeout(() => {
-			callback(new Error('operation_timeout'), null)
-		}, timeout)
-
-		operation((...args: any[]) => {
-			clearTimeout(operationTimeout)
-			callback(args[0], args[1])
-		})
-	}
-
 	private _objectMerge(...args: Array<Record<string, unknown>>) {
 		const merged = {}
 		this._objectForEach(args, (argument: Record<string, unknown>) => {
@@ -650,4 +427,12 @@ export class INewsClient extends EventEmitter {
 			if ({}.hasOwnProperty.call(object, property)) callback((object as any)[property], property, object)
 		}
 	}
+}
+
+async function sleep(milliseconds: number): Promise<void> {
+	return new Promise((resolve) => {
+		setTimeout(() => {
+			resolve()
+		}, milliseconds)
+	})
 }

@@ -1,7 +1,7 @@
 import parseNsml from '../inewsStoryParser'
 
 describe('inewsStoryParser', () => {
-	it('parses multi-line anchored element (ae)', () => {
+	it('parses multi-line anchored element (ae)', async () => {
 		const nsml = `<nsml version="-//AVID//DTD NSML 1.0//EN">
 		<story>
 		<aeset>
@@ -16,22 +16,27 @@ describe('inewsStoryParser', () => {
 		</aeset>
 		</story>
 		`
-		let error
-		let output
 
-		parseNsml(nsml, (err, out) => {
-			error = err
-			output = out
-		})
-
-		expect(error).toBeFalsy()
+		const output = await parseNsml(nsml)
 		expect(output).toEqual({
-			fields: {},
+			fields: {
+				audioTime: { value: undefined },
+				backTime: { value: undefined },
+				cumeTime: { value: undefined },
+				layout: { value: undefined },
+				modifyDate: { value: undefined },
+				pageNumber: { value: undefined },
+				runsTime: { value: undefined },
+				tapeTime: { value: undefined },
+				title: { value: undefined },
+				totalTime: { value: undefined },
+				videoId: { value: undefined },
+			},
 			meta: {},
 			cues: [['#kg bund TEST', 'test', ';0.02']],
 		})
 	})
-	it('omits empty paragraphs (ap) in a multi-line anchored element', () => {
+	it('omits empty paragraphs (ap) in a multi-line anchored element', async () => {
 		const nsml = `<nsml version="-//AVID//DTD NSML 1.0//EN">
 		<story>
 		<aeset>
@@ -47,22 +52,27 @@ describe('inewsStoryParser', () => {
 		</aeset>
 		</story>
 		`
-		let error
-		let output
 
-		parseNsml(nsml, (err, out) => {
-			error = err
-			output = out
-		})
-
-		expect(error).toBeFalsy()
+		const output = await parseNsml(nsml)
 		expect(output).toEqual({
-			fields: {},
+			fields: {
+				audioTime: { value: undefined },
+				backTime: { value: undefined },
+				cumeTime: { value: undefined },
+				layout: { value: undefined },
+				modifyDate: { value: undefined },
+				pageNumber: { value: undefined },
+				runsTime: { value: undefined },
+				tapeTime: { value: undefined },
+				title: { value: undefined },
+				totalTime: { value: undefined },
+				videoId: { value: undefined },
+			},
 			meta: {},
 			cues: [['#kg bund TEST', 'test', ';0.02']],
 		})
 	})
-	it('omits empty paragraphs (ap) in a multi-line anchored element with machine control (mc)', () => {
+	it('omits empty paragraphs (ap) in a multi-line anchored element with machine control (mc)', async () => {
 		const nsml = `<nsml version="-//AVID//DTD NSML 1.0//EN">
 		<story>
 		<aeset>
@@ -80,22 +90,27 @@ describe('inewsStoryParser', () => {
 		</aeset>
 		</story>
 		`
-		let error
-		let output
 
-		parseNsml(nsml, (err, out) => {
-			error = err
-			output = out
-		})
-
-		expect(error).toBeFalsy()
+		const output = await parseNsml(nsml)
 		expect(output).toEqual({
-			fields: {},
+			fields: {
+				audioTime: { value: undefined },
+				backTime: { value: undefined },
+				cumeTime: { value: undefined },
+				layout: { value: undefined },
+				modifyDate: { value: undefined },
+				pageNumber: { value: undefined },
+				runsTime: { value: undefined },
+				tapeTime: { value: undefined },
+				title: { value: undefined },
+				totalTime: { value: undefined },
+				videoId: { value: undefined },
+			},
 			meta: {},
 			cues: [['#kg bund TEST', 'test', ';0.02']],
 		})
 	})
-	it('maintains order (inserts empty cues in place of elements containing only an empty paragraph)', () => {
+	it('maintains order (inserts empty cues in place of elements containing only an empty paragraph)', async () => {
 		const nsml = `<nsml version="-//AVID//DTD NSML 1.0//EN">
 		<story>
 		<aeset>
@@ -137,17 +152,22 @@ describe('inewsStoryParser', () => {
 		</aeset>
 		</story>
 		`
-		let error
-		let output
 
-		parseNsml(nsml, (err, out) => {
-			error = err
-			output = out
-		})
-
-		expect(error).toBeFalsy()
+		const output = await parseNsml(nsml)
 		expect(output).toEqual({
-			fields: {},
+			fields: {
+				audioTime: { value: undefined },
+				backTime: { value: undefined },
+				cumeTime: { value: undefined },
+				layout: { value: undefined },
+				modifyDate: { value: undefined },
+				pageNumber: { value: undefined },
+				runsTime: { value: undefined },
+				tapeTime: { value: undefined },
+				title: { value: undefined },
+				totalTime: { value: undefined },
+				videoId: { value: undefined },
+			},
 			meta: {},
 			cues: [[], [], [], ['#kg bund TEST', 'test', ';0.02'], [], ['#kg bund TEST2', 'test2', ';0.11']],
 		})
