@@ -15,21 +15,24 @@ export type INewsClientConfig = {
 	password: string
 }
 
-export type INewsFTPFile = {
+export type INewsFTPItemBase = {
 	file: string
 	modified?: Date
-} & (
-	| {
-			filetype: 'file'
-			identifier: string
-			locator: string
-			storyName: string
-			flags?: { floated?: boolean }
-	  }
-	| {
-			filetype: 'queue'
-	  }
-)
+}
+
+export type INewsFTPStory = INewsFTPItemBase & {
+	filetype: 'story'
+	identifier: string
+	locator: string
+	storyName: string
+	flags?: { floated?: boolean }
+}
+
+export type INewsFTPQueue = INewsFTPItemBase & {
+	filetype: 'queue'
+}
+
+export type INewsFTPStoryOrQueue = INewsFTPStory | INewsFTPQueue
 
 export class INewsClient extends EventEmitter {
 	status: Status = 'disconnected'
@@ -205,7 +208,7 @@ export class INewsClient extends EventEmitter {
 		})
 	}
 
-	async list(directory: string): Promise<INewsFTPFile[]> {
+	async list(directory: string): Promise<INewsFTPStoryOrQueue[]> {
 		await this.connect()
 		await this._cwd(directory)
 
@@ -213,7 +216,7 @@ export class INewsClient extends EventEmitter {
 			this._ftpConn.list((error, list) => {
 				if (error) reject(error)
 				else {
-					const files: INewsFTPFile[] = []
+					const files: INewsFTPStoryOrQueue[] = []
 					if (Array.isArray(list)) {
 						;(list as Array<FtpClient.ListingElement | string>).forEach((listItem) => {
 							// So apparently, if the ftp library can't parse a list item, it just bails out and returns a string.
@@ -298,12 +301,12 @@ export class INewsClient extends EventEmitter {
 		return this._fileNameFromListItem(listItem) !== undefined
 	}
 
-	private _fileFromListItem(listItem: string): INewsFTPFile | undefined {
-		let file: Partial<INewsFTPFile> = {}
+	private _fileFromListItem(listItem: string): INewsFTPStoryOrQueue | undefined {
+		let file: Partial<INewsFTPStoryOrQueue> = {}
 		if (this._listItemIsFile(listItem)) {
 			const fileName = this._fileNameFromListItem(listItem)
 			if (typeof fileName !== 'undefined') {
-				file = { filetype: 'file', file: fileName }
+				file = { filetype: 'story', file: fileName }
 				file['identifier'] = this._storyIdentifierFromFilename(fileName)
 				file['locator'] = this._storyLocatorFromFilename(fileName)
 				file['storyName'] = this._storyNameFromListItem(listItem)
@@ -317,11 +320,11 @@ export class INewsClient extends EventEmitter {
 			const fileDate = this._dateFromListItem(listItem)
 			if (typeof fileDate !== 'undefined') file['modified'] = fileDate
 
-			if (file['filetype'] === 'file') {
+			if (file['filetype'] === 'story') {
 				file['flags'] = this._flagsFromListItem(listItem)
 			}
 
-			return file as INewsFTPFile
+			return file as INewsFTPStory
 		} else return undefined
 	}
 
