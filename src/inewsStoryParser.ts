@@ -100,7 +100,7 @@ function nodesToArray(nodes: htmlparser.DOM, tag: string) {
 
 	// Filter out leading lines in production cues
 	lines = lines.filter((line) => {
-		return (line as any) > 0 || line != ']] S3.0 G 0 [['
+		return line != ']] S3.0 G 0 [['
 	})
 
 	return lines
