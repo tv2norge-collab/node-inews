@@ -72,7 +72,8 @@ export class INewsClient extends EventEmitter {
 		// Capture FTP connection events
 		this._objectForEach(
 			{ ready: 'connected', error: 'error', close: 'disconnected', end: 'disconnected' },
-			(eventStatus: Status, eventName: string) => {
+			(eventStatus: Status, eventName) => {
+				if (typeof eventName === 'number') return
 				// Re-emit event
 				this._ftpConn.on(eventName, (...args) => {
 					this._setStatus(eventStatus) // Emit status
@@ -406,24 +407,33 @@ export class INewsClient extends EventEmitter {
 		return Array.isArray(listItemParts) && listItemParts.length > 1 ? listItemParts[1] : ''
 	}
 
-	private _objectMerge(...args: Array<Record<string, unknown>>) {
-		const merged = {}
+	private _objectMerge(...args: Array<Record<string, unknown>>): Record<string, unknown> {
+		const merged: Record<string, unknown> = {}
 		this._objectForEach(args, (argument: Record<string, unknown>) => {
 			for (const attrname in argument) {
-				if ({}.hasOwnProperty.call(argument, attrname)) (merged as any)[attrname] = argument[attrname]
+				if ({}.hasOwnProperty.call(argument, attrname)) {
+					merged[attrname] = argument[attrname]
+				}
 			}
 		})
 		return merged
 	}
 
-	private _objectForEach(
-		object: Array<Record<string, unknown>> | Record<string, unknown>,
-		callback: (value: any, key: string, parentObject: Array<Record<string, unknown>> | Record<string, unknown>) => void
+	private _objectForEach<T extends Array<Record<string, unknown>> | Record<string, unknown>>(
+		object: T,
+		callback: (value: any, key: number | string, parentObject: T) => void
 	) {
 		// run function on each property (child) of object
-		for (const property in object) {
-			// pull keys before looping through?
-			if ({}.hasOwnProperty.call(object, property)) callback((object as any)[property], property, object)
+		if (Array.isArray(object)) {
+			for (let i = 0; i < object.length; i++) {
+				callback(object[i], i, object)
+			}
+		} else {
+			for (const property in object) {
+				if ({}.hasOwnProperty.call(object, property)) {
+					callback(object[property], property, object)
+				}
+			}
 		}
 	}
 }
