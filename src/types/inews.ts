@@ -11,14 +11,14 @@ export interface INewsStory {
 }
 
 export type INewsFields = {
-	[fieldName in INewsFieldName]: INewsField
+	/** Empty tags will have a value of an empty string (''). Missing tags will be undefined. */
+	[fieldName in INewsFieldName]: INewsField | undefined
 }
 
 export type INewsField = {
-	/** Empty tag = empty string (''). Missing tag = undefined. */
-	value?: string
-	/** Missing tag = undefined. */
-	attributes?: INewsFieldAttributes
+	/** Empty tag = empty string (''). */
+	value: string
+	attributes: INewsFieldAttributes
 }
 
 /**
