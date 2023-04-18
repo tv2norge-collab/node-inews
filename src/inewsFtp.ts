@@ -118,8 +118,7 @@ export class INewsClient extends EventEmitter {
 				reconnectAttempts++
 
 				try {
-					const ftpConn = await promise
-					return ftpConn
+					return promise
 				} catch (error) {
 					if (!this.maxReconnectAttempts || reconnectAttempts >= this.maxReconnectAttempts) {
 					  throw error
