@@ -419,7 +419,7 @@ export class INewsClient extends EventEmitter {
 		return merged
 	}
 
-	private _objectForEach<T extends Array<Record<string, unknown>> | Record<string, unknown>>(
+	private _objectForEach<T extends Record<string, unknown>[] | Record<string, unknown>>(
 		object: T,
 		callback: (value: any, key: number | string, parentObject: T) => void
 	) {
