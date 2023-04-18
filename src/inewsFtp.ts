@@ -219,7 +219,7 @@ export class INewsClient extends EventEmitter {
 				else {
 					const files: INewsFTPStoryOrQueue[] = []
 					if (Array.isArray(list)) {
-						;(list as Array<FtpClient.ListingElement | string>).forEach((listItem) => {
+						;(list as (FtpClient.ListingElement | string)[]).forEach((listItem) => {
 							// So apparently, if the ftp library can't parse a list item, it just bails out and returns a string.
 							// This is not reflected in the types.
 							if (typeof listItem !== 'string') {
