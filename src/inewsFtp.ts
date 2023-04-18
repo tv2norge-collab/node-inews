@@ -407,7 +407,7 @@ export class INewsClient extends EventEmitter {
 		return Array.isArray(listItemParts) && listItemParts.length > 1 ? listItemParts[1] : ''
 	}
 
-	private _objectMerge(...args: Array<Record<string, unknown>>): Record<string, unknown> {
+	private _objectMerge(...args: Record<string, unknown>[]): Record<string, unknown> {
 		const merged: Record<string, unknown> = {}
 		this._objectForEach(args, (argument: Record<string, unknown>) => {
 			for (const attrname in argument) {
