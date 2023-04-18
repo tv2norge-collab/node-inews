@@ -3,24 +3,22 @@ import FtpClient = require('ftp')
 import parseNsml from './inewsStoryParser'
 import { INewsStory, Status } from './types/inews'
 
-export type INewsClientConfig = {
+export interface INewsClientConfig {
 	hosts: string[]
 	host?: string
 	timeout: number
 	reconnectTimeout: number
-	maxOperations: number
-	maxOperationAttempts: number
-	reconnectAttempts?: number
+	maxReconnectAttempts: number
 	user: string
 	password: string
 }
 
-export type INewsFTPItemBase = {
+export interface INewsFTPItemBase {
 	file: string
 	modified?: Date
 }
 
-export type INewsFTPStory = INewsFTPItemBase & {
+export interface INewsFTPStory extends INewsFTPItemBase {
 	filetype: 'story'
 	identifier: string
 	locator: string
@@ -28,7 +26,7 @@ export type INewsFTPStory = INewsFTPItemBase & {
 	flags?: { floated?: boolean }
 }
 
-export type INewsFTPQueue = INewsFTPItemBase & {
+export interface INewsFTPQueue extends INewsFTPItemBase {
 	filetype: 'queue'
 }
 
@@ -60,11 +58,10 @@ export class INewsClient extends EventEmitter {
 		const configDefault: Partial<INewsClientConfig> = {
 			timeout: 60000, // 1 minute
 			reconnectTimeout: 5000, // 5 seconds
-			maxOperations: 5,
-			maxOperationAttempts: 5,
+			maxReconnectAttempts: -1, // Infinite
 		}
 
-		this.config = this._objectMerge(configDefault, config) as INewsClientConfig
+		this.config = this._objectMerge(configDefault, config) as unknown as INewsClientConfig
 
 		if (!Array.isArray(this.config.hosts) && typeof this.config.host === 'string')
 			this.config.hosts = [this.config.host]
@@ -72,7 +69,7 @@ export class INewsClient extends EventEmitter {
 		// Capture FTP connection events
 		this._objectForEach(
 			{ ready: 'connected', error: 'error', close: 'disconnected', end: 'disconnected' },
-			(eventStatus: Status, eventName) => {
+			(eventStatus: Status, eventName: string | number) => {
 				if (typeof eventName === 'number') return
 				// Re-emit event
 				this._ftpConn.on(eventName, (...args) => {
@@ -108,9 +105,7 @@ export class INewsClient extends EventEmitter {
 				let promise: Promise<FtpClient>
 
 				if (reconnectAttempts > 0) {
-					promise = this.disconnect().then(async () => {
-						return connect()
-					})
+					promise = this.disconnect().then(connect)
 				} else {
 					promise = connect()
 				}
@@ -120,11 +115,11 @@ export class INewsClient extends EventEmitter {
 				try {
 					return promise
 				} catch (error) {
-					if (!this.maxReconnectAttempts || reconnectAttempts >= this.maxReconnectAttempts) {
-					  throw error
+					if (!this.config.maxReconnectAttempts || reconnectAttempts >= this.config.maxReconnectAttempts) {
+						throw error
 					}
-					if (this.reconnectTimeout) {
-					  await sleep(this.reconnectTimeout)
+					if (this.config.reconnectTimeout) {
+						await sleep(this.config.reconnectTimeout)
 					}
 					return attemptReconnect()
 				}
