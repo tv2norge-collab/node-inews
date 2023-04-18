@@ -121,19 +121,13 @@ export class INewsClient extends EventEmitter {
 					const ftpConn = await promise
 					return ftpConn
 				} catch (error) {
-					if (
-						typeof this.config.reconnectAttempts !== 'number' ||
-						this.config.reconnectAttempts < 0 ||
-						reconnectAttempts < this.config.reconnectAttempts
-					) {
-						if (typeof this.config.reconnectTimeout === 'number' && this.config.reconnectTimeout > 0) {
-							await sleep(this.config.reconnectTimeout)
-						}
-
-						return attemptReconnect()
-					} else {
-						throw error
+					if (!this.maxReconnectAttempts || reconnectAttempts >= this.maxReconnectAttempts) {
+					  throw error
 					}
+					if (this.reconnectTimeout) {
+					  await sleep(this.reconnectTimeout)
+					}
+					return attemptReconnect()
 				}
 			}
 
