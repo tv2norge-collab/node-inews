@@ -8,6 +8,7 @@ export interface INewsStory {
 	meta: INewsMetaData
 	cues: Array<UnparsedCue | null>
 	body?: string
+	attachments: string[]
 }
 
 export type INewsFields = {

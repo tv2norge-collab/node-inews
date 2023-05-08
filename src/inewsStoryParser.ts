@@ -18,7 +18,10 @@ export default async (nsml: string): Promise<INewsStory> => {
 		})
 
 		const parser = new htmlparser.Parser(parseHandler)
-		parser.parseComplete(nsml)
+
+		// In order to properly parse multi-part XML attachments, we have to manually
+		// strip their CDATA tags here.
+		parser.parseComplete(nsml.replace(/<!\[CDATA\[|]]>/g, ''))
 	})
 }
 
@@ -40,6 +43,7 @@ function parseNsml(nodes: htmlparser.DOM, inputStory?: Partial<INewsStory>): INe
 		},
 		meta: {},
 		cues: [],
+		attachments: [],
 	}
 
 	nodes.forEach(function (node) {
@@ -151,6 +155,14 @@ function parseNsmlNode(node: htmlparser.Node, story: Partial<INewsStory>) {
 					// Do nothing.
 				}
 				break
+			case 'attachment': {
+				if (!story.attachments) {
+					story.attachments = []
+				}
+
+				story.attachments.push(unescape(stringifyNodes(node.children)).trim())
+				break
+			}
 			default:
 				if (Array.isArray(node.children)) parseNsml(node.children, story)
 
