@@ -61,22 +61,4 @@ export interface INewsMetaData {
 	delete?: string
 }
 
-export interface INewsDirItem {
-	filetype: 'file' | 'queue'
-	file: string
-	modified?: Date
-}
-
-export interface INewsFile extends INewsDirItem {
-	filetype: 'file'
-	/* Unique identifier. Sometimes blank (temporarily) */
-	identifier: string
-	locator: string
-	storyName: string
-}
-
-export interface INewsQueue extends INewsDirItem {
-	filetype: 'queue'
-}
-
 export type Status = 'connecting' | 'connected' | 'error' | 'disconnected'
