@@ -116,6 +116,7 @@ export class INewsClient extends EventEmitter {
 					return promise
 				} catch (error) {
 					if (!this.config.maxReconnectAttempts || reconnectAttempts >= this.config.maxReconnectAttempts) {
+						this._connectionPromise = undefined
 						throw error
 					}
 					if (this.config.reconnectTimeout) {
@@ -132,6 +133,7 @@ export class INewsClient extends EventEmitter {
 					const onReady = () => {
 						if (!returned) {
 							returned = true
+							this._connectionPromise = undefined
 							this._currentDir = null
 							removeListeners()
 							resolve(this._ftpConn)
@@ -141,6 +143,7 @@ export class INewsClient extends EventEmitter {
 					const onError = (error: NodeJS.ErrnoException) => {
 						if (!returned) {
 							returned = true
+							this._connectionPromise = undefined
 							removeListeners()
 							reject(error)
 						}
@@ -149,6 +152,7 @@ export class INewsClient extends EventEmitter {
 					const onEnd = () => {
 						if (!returned) {
 							returned = true
+							this._connectionPromise = undefined
 							removeListeners()
 							resolve(this._ftpConn)
 						}
