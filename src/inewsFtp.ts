@@ -58,7 +58,7 @@ export class INewsClient extends EventEmitter {
 		const configDefault: Partial<INewsClientConfig> = {
 			timeout: 60000, // 1 minute
 			reconnectTimeout: 5000, // 5 seconds
-			maxReconnectAttempts: -1, // Infinite
+			maxReconnectAttempts: Infinity,
 		}
 
 		this.config = this._objectMerge(configDefault, config) as unknown as INewsClientConfig
