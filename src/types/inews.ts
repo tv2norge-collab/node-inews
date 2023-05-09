@@ -43,6 +43,10 @@ export enum INewsFieldName {
  * Sourced from https://resources.avid.com/SupportFiles/attach/NSMLv2.8Specification.pdf
  */
 export interface INewsFieldAttributes {
+	/**
+	 * "User-Entered Content" means that a value has been entered manually and appears **bold** in iNews.
+	 * In some studios, it is common to treat user-entered values differently than automatic values.
+	 */
 	uec?: boolean
 	urgency?: 1 | 2 | 3
 	aready?: string
