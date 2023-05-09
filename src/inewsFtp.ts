@@ -88,7 +88,7 @@ export class INewsClient extends EventEmitter {
 	async connect(): Promise<FtpClient> {
 		// If there's a connection in-progress, return that promise.
 		if (this._connectionPromise) {
-			return this._connectionPromise
+			return await this._connectionPromise
 		}
 
 		// If we're already connected, return that connection.
