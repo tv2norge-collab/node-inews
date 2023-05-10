@@ -113,7 +113,7 @@ export class INewsClient extends EventEmitter {
 				reconnectAttempts++
 
 				try {
-					return promise
+					return await promise
 				} catch (error) {
 					if (!this.config.maxReconnectAttempts || reconnectAttempts >= this.config.maxReconnectAttempts) {
 						this._connectionPromise = undefined
@@ -264,9 +264,24 @@ export class INewsClient extends EventEmitter {
 
 	private async _get(file: string): Promise<string> {
 		return new Promise((resolve, reject) => {
+			let handled = false
+			const createTimeout = () => {
+				return setTimeout(() => {
+					if (handled) return
+					handled = true
+					clearTimeout(timeout)
+					reject(new Error('Timed out while waiting for data'))
+				}, 2500)
+			}
+			let timeout = createTimeout()
+
 			this._ftpConn.get(file, (error, stream) => {
-				if (error) reject(error)
-				else if (stream) {
+				if (error) {
+					if (handled) return
+					handled = true
+					clearTimeout(timeout)
+					reject(error)
+				} else if (stream) {
 					let storyXml = ''
 
 					stream.setEncoding('utf8')
@@ -276,12 +291,24 @@ export class INewsClient extends EventEmitter {
 					})
 
 					stream.on('data', (chunk) => {
+						if (handled) return
+						clearTimeout(timeout)
+						timeout = createTimeout()
 						storyXml += chunk
 					})
+
 					stream.once('close', () => {
+						if (handled) return
+						handled = true
+						clearTimeout(timeout)
 						resolve(storyXml)
 					})
-				} else reject(new Error('no_stream'))
+				} else {
+					if (handled) return
+					handled = true
+					clearTimeout(timeout)
+					reject(new Error('no_stream'))
+				}
 			})
 		})
 	}
