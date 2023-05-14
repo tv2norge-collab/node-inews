@@ -214,7 +214,7 @@ export class INewsClient extends EventEmitter {
 					if (handled) return
 					handled = true
 					clearTimeout(timeout)
-					reject(new Error('Timed out while waiting for data'))
+					reject(new Error('Timed out while waiting for file list'))
 				}, this.config.operationTimeout)
 			}
 			const timeout = createTimeout()
@@ -273,7 +273,7 @@ export class INewsClient extends EventEmitter {
 					if (handled) return
 					handled = true
 					clearTimeout(timeout)
-					reject(new Error('Timed out while waiting for data'))
+					reject(new Error('Timed out while changing directories'))
 				}, this.config.operationTimeout)
 			}
 			const timeout = createTimeout()
