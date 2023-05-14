@@ -11,6 +11,7 @@ export interface INewsClientConfig {
 	maxReconnectAttempts: number
 	user: string
 	password: string
+	operationTimeout: number
 }
 
 export interface INewsFTPItemBase {
@@ -59,6 +60,7 @@ export class INewsClient extends EventEmitter {
 			timeout: 60000, // 1 minute
 			reconnectTimeout: 5000, // 5 seconds
 			maxReconnectAttempts: Infinity,
+			operationTimeout: 2500, // 2.5 seconds
 		}
 
 		this.config = this._objectMerge(configDefault, config) as unknown as INewsClientConfig
@@ -206,9 +208,28 @@ export class INewsClient extends EventEmitter {
 		await this._cwd(directory)
 
 		return new Promise((resolve, reject) => {
+			let handled = false
+			const createTimeout = () => {
+				return setTimeout(() => {
+					if (handled) return
+					handled = true
+					clearTimeout(timeout)
+					reject(new Error('Timed out while waiting for data'))
+				}, this.config.operationTimeout)
+			}
+			const timeout = createTimeout()
+
 			this._ftpConn.list((error, list) => {
-				if (error) reject(error)
-				else {
+				if (error) {
+					if (handled) return
+					handled = true
+					clearTimeout(timeout)
+					reject(error)
+				} else {
+					if (handled) return
+					handled = true
+					clearTimeout(timeout)
+
 					const files: INewsFTPStoryOrQueue[] = []
 					if (Array.isArray(list)) {
 						;(list as (FtpClient.ListingElement | string)[]).forEach((listItem) => {
@@ -246,14 +267,33 @@ export class INewsClient extends EventEmitter {
 
 	private async _cwd(requestPath: string): Promise<void> {
 		return new Promise((resolve, reject) => {
-			if (this._currentDir === requestPath)
-				// already in this directory
+			let handled = false
+			const createTimeout = () => {
+				return setTimeout(() => {
+					if (handled) return
+					handled = true
+					clearTimeout(timeout)
+					reject(new Error('Timed out while waiting for data'))
+				}, this.config.operationTimeout)
+			}
+			const timeout = createTimeout()
+
+			if (this._currentDir === requestPath) {
+				if (handled) return
+				handled = true
+				clearTimeout(timeout)
 				resolve()
-			else {
+			} else {
 				this._ftpConn.cwd(requestPath, (error, cwdPath) => {
 					if (error) {
+						if (handled) return
+						handled = true
+						clearTimeout(timeout)
 						reject(error)
 					} else {
+						if (handled) return
+						handled = true
+						clearTimeout(timeout)
 						this._currentDir = cwdPath
 						resolve()
 					}
@@ -271,7 +311,7 @@ export class INewsClient extends EventEmitter {
 					handled = true
 					clearTimeout(timeout)
 					reject(new Error('Timed out while waiting for data'))
-				}, 2500)
+				}, this.config.operationTimeout)
 			}
 			let timeout = createTimeout()
 
