@@ -60,7 +60,7 @@ export interface INewsMetaData {
 	break?: string
 	mcserror?: string
 	hold?: string
-	float?: 'float' | undefined
+	float?: 'float'
 	delete?: string
 }
 
