@@ -43,7 +43,7 @@ function parseNsml(nodes: htmlparser.DOM, inputStory?: Partial<INewsStory>): INe
 		},
 		meta: {},
 		cues: [],
-		attachments: [],
+		attachments: {},
 	}
 
 	nodes.forEach(function (node) {
@@ -157,10 +157,10 @@ function parseNsmlNode(node: htmlparser.Node, story: Partial<INewsStory>) {
 				break
 			case 'attachment': {
 				if (!story.attachments) {
-					story.attachments = []
+					story.attachments = {}
 				}
 
-				story.attachments.push(unescape(stringifyNodes(node.children)).trim())
+				story.attachments[node.attribs['id']] = unescape(stringifyNodes(node.children)).trim()
 				break
 			}
 			default:
