@@ -137,6 +137,19 @@ export class INewsClient extends EventEmitter {
 							returned = true
 							this._connectionPromise = undefined
 							this._currentDir = null
+
+							// Set the connection to Unicode.
+							// https://resources.avid.com/SupportFiles/attach/Broadcast/iNEWS-v45-AG.pdf
+							this._ftpConn.site('CHARSET=UTF-8', () => {
+								// Do nothing.
+							})
+
+							// Set the connection to NSML 2 format.
+							// https://resources.avid.com/SupportFiles/attach/Broadcast/iNEWS-v45-AG.pdf
+							this._ftpConn.site('FORMAT=2NSML', () => {
+								// Do nothing.
+							})
+
 							removeListeners()
 							resolve(this._ftpConn)
 						}
